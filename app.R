@@ -218,8 +218,8 @@ ui <- navbarPage(title = 'HIV app',
                           includeMarkdown('about.md')
                  ),
                  # Show License
-                 tabPanel('License'#,
-                          #includeMarkdown('license.md')
+                 tabPanel('License',
+                          includeMarkdown('license.md')
                  )
 )
 
