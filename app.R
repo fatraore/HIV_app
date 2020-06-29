@@ -35,7 +35,7 @@ new_region    <- read_csv('data/Number of new HIV infections region.csv', skip =
                           col_types = cols(.default = 'c'), col_names = FALSE, na = 'No data')
 
 world_spdf <- readOGR( 
-    dsn= paste0(getwd(),"/data/") , 
+    dsn= paste0(getwd(),"/data") , 
     layer="TM_WORLD_BORDERS_SIMPL-0.3",
     verbose=FALSE
 )
