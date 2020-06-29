@@ -11,6 +11,9 @@ The raw data for this app are from the [WHO site](https://apps.who.int/gho/data/
 ## Packages
 
 - shiny
+- shinyWidgets
 - tidyverse
 - DT
+- rgdal
 - leaflet
+- RColorBrewer
