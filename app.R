@@ -7,10 +7,9 @@ library(shiny)
 library(shinyWidgets)
 library(tidyverse)
 library(DT)
-library(plotly)
-library(scales)
-library(maps)
-
+library(rgdal)
+library(leaflet)
+library(RColorBrewer)
 
 # Function --------------------------------------------------------------------------
 
@@ -35,6 +34,12 @@ new_country   <- read_csv('data/Number of new HIV infections country.csv', skip 
 new_region    <- read_csv('data/Number of new HIV infections region.csv', skip = 1,
                           col_types = cols(.default = 'c'), col_names = FALSE, na = 'No data')
 
+world_spdf <- readOGR( 
+    dsn= paste0(getwd(),"/data/") , 
+    layer="TM_WORLD_BORDERS_SIMPL-0.3",
+    verbose=FALSE
+)
+
 
 # Transformation --------------------------------------------------------------------
 
@@ -46,7 +51,24 @@ living_country <- living_country %>%
     mutate(years = as.numeric(years),
            count = as.numeric(str_replace_all(count, '\\s+', '')),
            imin = as.numeric(str_replace_all(imin, '\\[|\\s+', '')),
-           imax = as.numeric(str_replace_all(imax, '\\]|\\s+', ''))
+           imax = as.numeric(str_replace_all(imax, '\\]|\\s+', '')),
+           NAME = case_when(
+               Country == "Bolivia (Plurinational State of)" ~ "Bolivia",
+               Country == "Cabo Verde" ~ "Cape Verde",
+               Country == "Côte d'Ivoire" ~ "Cote d'Ivoire",
+               Country == "Czechia" ~ "Czech Republic",
+               Country == "Democratic People's Republic of Korea" ~ "Korea, Democratic People's Republic of",
+               Country == "Eswatini" ~ "Swaziland",
+               Country == "Libya" ~ "Libyan Arab Jamahiriya",
+               Country == "Myanmar" ~ "Burma",
+               Country == "Republic of Korea" ~ "Korea, Republic of",
+               Country == "Republic of North Macedonia" ~ "The former Yugoslav Republic of Macedonia",
+               Country == "Russian Federation" ~ "Russia",
+               Country == "South Sudan" ~ "Sudan",
+               Country == "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+               Country == "United States of America"  ~ "United States",
+               Country == "Venezuela (Bolivarian Republic of)" ~ "Venezuela",
+               TRUE ~ Country)
     )
 
 living_region <- living_region %>%
@@ -68,7 +90,24 @@ death_country <-   death_country %>%
     mutate(years = as.numeric(years),
            count = as.numeric(str_replace_all(count, '\\s+', '')),
            imin = as.numeric(str_replace_all(imin, '\\[|\\s+', '')),
-           imax = as.numeric(str_replace_all(imax, '\\]|\\s+', ''))
+           imax = as.numeric(str_replace_all(imax, '\\]|\\s+', '')),
+           NAME = case_when(
+               Country == "Bolivia (Plurinational State of)" ~ "Bolivia",
+               Country == "Cabo Verde" ~ "Cape Verde",
+               Country == "Côte d'Ivoire" ~ "Cote d'Ivoire",
+               Country == "Czechia" ~ "Czech Republic",
+               Country == "Democratic People's Republic of Korea" ~ "Korea, Democratic People's Republic of",
+               Country == "Eswatini" ~ "Swaziland",
+               Country == "Libya" ~ "Libyan Arab Jamahiriya",
+               Country == "Myanmar" ~ "Burma",
+               Country == "Republic of Korea" ~ "Korea, Republic of",
+               Country == "Republic of North Macedonia" ~ "The former Yugoslav Republic of Macedonia",
+               Country == "Russian Federation" ~ "Russia",
+               Country == "South Sudan" ~ "Sudan",
+               Country == "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+               Country == "United States of America"  ~ "United States",
+               Country == "Venezuela (Bolivarian Republic of)" ~ "Venezuela",
+               TRUE ~ Country)
     )
 
 death_region <- death_region %>%
@@ -96,7 +135,24 @@ new_country_2018 <- new_country %>%
     mutate(years = as.numeric(years),
            count = as.numeric(str_replace_all(count, '\\s+', '')),
            imin = as.numeric(str_replace_all(imin, '\\[|\\s+', '')),
-           imax = as.numeric(str_replace_all(imax, '\\]|\\s+', ''))
+           imax = as.numeric(str_replace_all(imax, '\\]|\\s+', '')),
+           NAME = case_when(
+               Country == "Bolivia (Plurinational State of)" ~ "Bolivia",
+               Country == "Cabo Verde" ~ "Cape Verde",
+               Country == "Côte d'Ivoire" ~ "Cote d'Ivoire",
+               Country == "Czechia" ~ "Czech Republic",
+               Country == "Democratic People's Republic of Korea" ~ "Korea, Democratic People's Republic of",
+               Country == "Eswatini" ~ "Swaziland",
+               Country == "Libya" ~ "Libyan Arab Jamahiriya",
+               Country == "Myanmar" ~ "Burma",
+               Country == "Republic of Korea" ~ "Korea, Republic of",
+               Country == "Republic of North Macedonia" ~ "The former Yugoslav Republic of Macedonia",
+               Country == "Russian Federation" ~ "Russia",
+               Country == "South Sudan" ~ "Sudan",
+               Country == "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+               Country == "United States of America"  ~ "United States",
+               Country == "Venezuela (Bolivarian Republic of)" ~ "Venezuela",
+               TRUE ~ Country)
     )
 new_country_percapita <- new_country %>%
     filter(years != '2018') %>%
@@ -128,10 +184,34 @@ new_region_percapita <- new_region %>%
     mutate(sexe = factor(str_extract(years, pattern = '(?<=\\d)[:alpha:].+')),
            years = as.numeric(str_extract(years, pattern = '\\d+')))
 
+
 # Define UI for application that draws a histogram
 ui <- navbarPage(title = 'HIV app',
                  
-                 tabPanel('Map'),
+                 tabPanel('Map',
+                          fluidPage(
+                              
+                              # Sidebar
+                              sidebarLayout(
+                                  sidebarPanel(
+                                      selectInput(inputId = 'mtable', 'Choose a data:',
+                                                  c('Number of people (all ages) living with HIV' = 'living',
+                                                    'Number of new HIV infections' = 'new',
+                                                    'Number of deaths due to HIV/AIDS' = 'death')
+                                      ),
+                                      conditionalPanel(
+                                          condition = 'input.mtable == "living" || input.mtable == "death"',
+                                          uiOutput('ui')
+                                      )
+                                  ),
+                                  
+                                  # Show map
+                                  mainPanel(
+                                      leafletOutput("map")
+                                  )
+                              )
+                          )
+                 ),
                  
                  # Panel Graphic
                  tabPanel('Graphic',
@@ -161,13 +241,7 @@ ui <- navbarPage(title = 'HIV app',
                                                       step = 1,
                                                       animate = TRUE)
                                       ),
-                                      multiInput(
-                                          inputId = 'countries',
-                                          label = 'Countries :', 
-                                          choices = NULL,
-                                          choiceNames = sort(unique(living_country$Country)),
-                                          choiceValues = sort(unique(living_country$Country))
-                                      )
+                                     uiOutput('ui2')
                                   ),
                                   
                                   # Show plot
@@ -219,7 +293,7 @@ ui <- navbarPage(title = 'HIV app',
                  ),
                  # Show License
                  tabPanel('License',
-                          includeMarkdown('license.md')
+                          includeMarkdown('LICENSE.md')
                  )
 )
 
@@ -227,7 +301,89 @@ ui <- navbarPage(title = 'HIV app',
 # Define server logic required to draw a histogram
 server <- function(input, output) {
     
+    # render ui
+    output$ui <- renderUI({
+        if (input$mtable != 'new') {
+            db <- returndt(table = input$mtable, type = 'country')
+            sliderTextInput(
+                inputId = 'myear',
+                label = "Year:", 
+                choices = sort(unique(db$years)),
+                grid = TRUE,
+                animate = animationOptions(interval = 2000)
+            )
+        }
+    })
+    
+    # Panel map
+    output$map <- renderLeaflet({
+        db <- returndt(table = input$mtable, type = 'country')
+        
+        if (input$mtable == 'new') {
+            db <- new_country_2018
+        } else {
+            db <- db %>%
+                filter(years == ifelse(is.null(input$myear), min(db$years, na.rm = TRUE), input$myear))
+        }
+        world <- world_spdf
+        world@data$POP2005 <-  NA
+        world@data$POP2005 <- db$count[match(world@data$NAME, db$NAME)]
+        mybins <- c(0, 1000 *c(1, 10, 100, 1000, 5000), Inf)
+        mypalette <- colorBin( palette='YlOrBr', domain=world@data$POP2005, na.color='transparent', bins=mybins)
+        
+        # Prepare the text for tooltips:
+        mytext <- str_c(
+            'Country: ', world@data$NAME,"<br/>",
+            case_when(
+                input$mtable == 'living' ~ 'Number of people (all ages) living with HIV: ',
+                input$mtable  == 'new' ~ 'Number of new HIV infections: ',
+                input$mtable  == 'death' ~ 'Number of deaths due to HIV/AIDS: '),
+            replace_na(round(world@data$POP2005, 2), replace = "No data")) %>%
+            lapply(htmltools::HTML)
+        
+        # Final Map
+        leaflet(world) %>%
+            addTiles()  %>%
+            setView( lat=10, lng=0 , zoom=2) %>%
+            addPolygons(
+                fillColor = ~mypalette(POP2005),
+                stroke=TRUE,
+                fillOpacity = 0.9,
+                color='white',
+                weight=0.3,
+                label = mytext,
+                labelOptions = labelOptions(
+                    style = list('font-weight' = 'normal', padding = '3px 8px'),
+                    textsize = '13px',
+                    direction = 'auto'
+                )
+            ) %>%
+            addLegend( pal=mypalette, values=~POP2005, opacity=0.9,
+                       title = case_when(
+                           input$mtable == 'living' ~ 'Number of people (all ages) living with HIV',
+                           input$mtable  == 'new' ~ 'Number of new HIV infections',
+                           input$mtable  == 'death' ~ 'Number of deaths due to HIV/AIDS'),
+                       position = 'bottomleft')
+    })
+
+    
     #panel Graphic
+    
+    output$ui2 <- renderUI({
+        db <- returndt(table = input$gtable, type = 'country')
+            pickerInput(
+                inputId = 'countries',
+                label = 'Countries :', 
+                choices = sort(unique(db$Country[!is.na(db$count)])),
+                options = list(
+                    `actions-box` = TRUE, 
+                    size = 10,
+                    `selected-text-format` = "count > 3"
+                ),
+                multiple = TRUE
+            )
+    })
+    
     output$plot1<-renderPlot({
         db <- returndt(table = input$gtable, type = 'country')
         
@@ -248,21 +404,24 @@ server <- function(input, output) {
         
         if (isFALSE(input$gswitch) & input$gtable == 'new') {
             db %>%
-                ggplot(aes(x = Country, y = count, fill = Country)) +
-                geom_col() +
-                scale_fill_viridis_d() +
+                ggplot(aes(x = Country, y = count)) +
+                geom_segment( aes(x=Country ,xend=Country, y=0, yend=count), color="grey") +
+                geom_point(size=3, color="#69b3a2") +
+                coord_flip() +
                 theme_linedraw() +
-                geom_errorbar(aes(ymin=imin, ymax=imax), width=.2,
-                              position=position_dodge(.9)) +
-                theme(legend.position = 'none') +
-                labs(x = 'Country', y = 'Count',
-                     caption = 'Source: WHO (https://apps.who.int/gho/data/node.main.618?lang=en)',
+                theme(
+                    panel.grid.minor.y = element_blank(),
+                    panel.grid.major.y = element_blank(),
+                    legend.position="none"
+                ) +
+                labs(caption = 'Source: WHO (https://apps.who.int/gho/data/node.main.618?lang=en)',
                      subtitle = str_c('Years : ', str_c(sort(unique(db$years)), collapse = '-')),
                      title = case_when(
                          input$gtable == 'living' ~ 'Number of people (all ages) living with HIV',
                          input$gtable  == 'new' ~ 'Number of new HIV infections',
                          input$gtable  == 'death' ~ 'Number of deaths due to HIV/AIDS')
                 )
+            
         } else if (isTRUE(input$gswitch) & input$gtable == 'new') {
             db %>%
                 ggplot(aes(x = Country, y = count, fill = sexe)) +
